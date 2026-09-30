@@ -1,0 +1,107 @@
+﻿@page "/create-support"
+@rendermode InteractiveServer
+@using System.ComponentModel.DataAnnotations
+@using System.Reflection
+@using SupportWebApp.Models
+@using SupportWebApp.Services
+@inject CosmosDbService CosmosService
+
+<PageTitle>Opret henvendelse - ADP Support</PageTitle>
+
+<h1>Opret support-henvendelse</h1>
+<div class="alert alert-warning d-flex justify-content-between align-items-center" role="alert">
+    <span>Du er i gang med at oprette en henvendelse. Ønsker du at se henvendelser, så tryk her:</span>
+    <a href="support-list" class="btn btn-outline-dark btn-sm ms-3">Se henvendelser</a>
+</div>
+@if (_success)
+{
+    <div class="alert alert-success">Tak! Din henvendelse er modtaget.
+        <a href="support-list" class="alert-link">Se alle henvendelser</a>
+    </div>
+    
+}
+@if (_error is not null)
+{
+    <div class="alert alert-danger">@_error</div>
+}
+
+<EditForm Model="_message" OnValidSubmit="SubmitAsync" FormName="createSupport">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <div class="mb-3">
+        <label class="form-label" for="name">Navn</label>
+        <InputText id="name" class="form-control" @bind-Value="_message.Name" />
+        <ValidationMessage For="() => _message.Name" />
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label" for="email">E-mail</label>
+        <InputText id="email" class="form-control" @bind-Value="_message.Email" />
+        <ValidationMessage For="() => _message.Email" />
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label" for="phone">Telefon (valgfri)</label>
+        <InputText id="phone" class="form-control" @bind-Value="_message.Phone" />
+        <ValidationMessage For="() => _message.Phone" />
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label" for="category">Kategori</label>
+        <InputSelect id="category" class="form-select" @bind-Value="_message.Category">
+            @foreach (var category in Enum.GetValues<SupportCategory>())
+            {
+                <option value="@category">@GetDisplayName(category)</option>
+            }
+        </InputSelect>
+        <ValidationMessage For="() => _message.Category" />
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label" for="description">Beskrivelse</label>
+        <InputTextArea id="description" class="form-control" rows="5" @bind-Value="_message.Description" />
+        <ValidationMessage For="() => _message.Description" />
+    </div>
+
+    <button type="submit" class="btn btn-primary" disabled="@_saving">
+        Opret henvendelse
+    </button>
+</EditForm>
+
+@code {
+    private SupportMessage _message = new();
+    private bool _success;
+    private bool _saving;
+    private string? _error;
+
+    private async Task SubmitAsync()
+    {
+        _success = false;
+        _error = null;
+        _saving = true;
+
+        try
+        {
+            await CosmosService.AddSupportMessageAsync(_message);
+            _success = true;
+            _message = new SupportMessage();   // nulstil formularen
+        }
+        catch (Exception ex)
+        {
+            _error = $"Kunne ikke gemme henvendelsen: {ex.Message}";
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    // Henter teksten fra [Display(Name = "...")] på enum-værdien
+    private static string GetDisplayName(SupportCategory category)
+    {
+        var member = typeof(SupportCategory).GetField(category.ToString());
+        return member?.GetCustomAttribute<DisplayAttribute>()?.Name ?? category.ToString();
+    }
+    
+}

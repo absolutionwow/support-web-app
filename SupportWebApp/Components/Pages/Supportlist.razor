@@ -1,0 +1,85 @@
+﻿@page "/support-list"
+@rendermode InteractiveServer
+@using System.ComponentModel.DataAnnotations
+@using System.Reflection
+@using SupportWebApp.Models
+@using SupportWebApp.Services
+@inject CosmosDbService CosmosService
+
+<PageTitle>Henvendelser - ADP Support</PageTitle>
+
+<h1>Support-henvendelser</h1>
+
+<div class="alert alert-info d-flex justify-content-between align-items-center" role="alert">
+    <span>Du ser oversigten over henvendelser. Ønsker du at oprette en ny henvendelse, så tryk her:</span>
+    <a href="create-support" class="btn btn-outline-dark btn-sm ms-3">Opret henvendelse</a>
+</div>
+
+@if (_loading)
+{
+    <p><em>Henter henvendelser...</em></p>
+}
+else if (_error is not null)
+{
+    <div class="alert alert-danger">@_error</div>
+}
+else if (_messages.Count == 0)
+{
+    <p>Der er ingen henvendelser endnu.</p>
+}
+else
+{
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Dato</th>
+                <th>Navn</th>
+                <th>E-mail</th>
+                <th>Telefon</th>
+                <th>Kategori</th>
+                <th>Beskrivelse</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var m in _messages)
+            {
+                <tr>
+                    <td>@m.CreatedAt.ToLocalTime().ToString("dd-MM-yyyy HH:mm")</td>
+                    <td>@m.Name</td>
+                    <td>@m.Email</td>
+                    <td>@m.Phone</td>
+                    <td>@GetDisplayName(m.Category)</td>
+                    <td>@m.Description</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<SupportMessage> _messages = new();
+    private bool _loading = true;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _messages = await CosmosService.GetSupportMessagesAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = $"Kunne ikke hente henvendelser: {ex.Message}";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private static string GetDisplayName(SupportCategory category)
+    {
+        var member = typeof(SupportCategory).GetField(category.ToString());
+        return member?.GetCustomAttribute<DisplayAttribute>()?.Name ?? category.ToString();
+    }
+}
